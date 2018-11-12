@@ -1,0 +1,8 @@
+{
+  "name": "VillageHead",
+  "version": "1.0.0",
+  "description": "Village and event bot for Darkfall:New Dawn",
+  "main": "VillageHead_dev.js",
+  "author": "Jiron"
+  
+}

@@ -1,0 +1,482 @@
+
+var Discord = require('discord.js')
+var auth = require('./auth.json');
+var client = new Discord.Client()
+
+
+
+var villageMsgChanId
+
+
+var villageCommunity = [{}]
+var villageTimeCommunity = []
+var villageTime6hCommunity = []
+var villageTime2hCommunity = []
+var villageTime30minCommunity = []
+var villageTime10minCommunity = []
+
+var ClansTracker = []
+var ClanChannelTracker = []
+
+
+client.on('ready', async () => {
+
+    // List servers the bot is connected to
+    var villageChanId
+
+    console.log("Servers:")
+
+    client.guilds.forEach((guild) => {
+        console.log(" - " + guild.name)
+
+        ClansTracker.push(guild.name)
+        // List all channels
+        guild.channels.forEach((channel) => {
+            var s = channel.name.toString()
+            if (s.includes("village-event-bot")) {
+                villageChanId = channel.id
+                ClanChannelTracker.push(villageChanId)
+                villageMsgChanId = villageChanId
+            }
+        })
+
+        var messageChannel = client.channels.get(villageChanId.toString()) // Replace with known channel ID
+        messageChannel.send("Greetings Agonians!")
+    })
+})
+
+
+// ---------------------- 
+
+client.on('message', (receivedMessage) => {
+    if (receivedMessage.author == client.user) { // Prevent bot from responding to its own messages
+        return
+    }
+
+
+
+    if (receivedMessage.content.startsWith("!")) {
+        processCommand(receivedMessage)
+    }
+})
+
+
+
+function processCommand(receivedMessage) {
+    let fullCommand = receivedMessage.content.substr(1) // Remove the leading exclamation mark
+    let splitCommand = fullCommand.split(" ") // Split the message up in to pieces for each space
+    let primaryCommand = splitCommand[0] // The first word directly after the exclamation is the command
+    let arguments = splitCommand.slice(1) // All other words are arguments/parameters/options for the command
+
+    console.log("Command received: " + primaryCommand)
+    console.log("Arguments: " + arguments) // There may not be any arguments
+
+    if (primaryCommand == "help") {
+        helpCommand(arguments, receivedMessage)
+    } else if (primaryCommand == "multiply") {
+        multiplyCommand(arguments, receivedMessage)
+    } else if (primaryCommand == "addvillage") {
+        addVillagetimerCommand(arguments, receivedMessage)
+    } else if (primaryCommand == "removevillage") {
+        removeVillagetimerCommand(arguments, receivedMessage)
+    }
+    else if (primaryCommand == "updatevillage") {
+        updateTheVillageCommand(arguments, receivedMessage)
+    }
+    else if (primaryCommand == "showvillages") {
+        showVillagetimerCommand(arguments, receivedMessage)
+    } else {
+        receivedMessage.channel.send("I don't understand the command. Try `!help` or `!showvillages`")
+    }
+}
+
+function helpCommand(arguments, receivedMessage) {
+    if (arguments.length == 0) {
+        receivedMessage.channel.send("Try `!help [topic]`, such as `village`, `update`, `remove`")
+    } else if (arguments[0] == "village") {
+        receivedMessage.channel.send(" add villages by using the command `!addvillage` \n ex !addvillage nameofvillage 24 12 \n nameofvillage is going live in 24hours 12min")
+    }
+    else if (arguments[0] == "update") {
+        receivedMessage.channel.send(" Updates the timeer of a village. `!updatevillage` \n ex !updatevillage nameofvillage 24 12 \n nameofvillage is going live in 24hours 12min")
+    }
+    else if (arguments[0] == "remove") {
+        receivedMessage.channel.send(" Removes the village `!removevillage` \n ex !removevillage nameofvillage")
+    }
+    else {
+        receivedMessage.channel.send("I'm not sure what you need help with. Try `!help`")
+    }
+}
+
+function multiplyCommand(arguments, receivedMessage) {
+    if (arguments.length < 2) {
+        receivedMessage.channel.send("Not enough values to multiply. Try `!multiply 2 4 10` or `!multiply 5.2 7`")
+        return
+    }
+    let product = 1
+    arguments.forEach((value) => {
+        product = product * parseFloat(value)
+    })
+    receivedMessage.channel.send("The product of " + arguments + " multiplied together is: " + product.toString())
+
+}
+
+function addVillagetimerCommand(arguments, receivedMessage) {
+    if (arguments.length < 3) {
+        receivedMessage.channel.send("What village is that, and what time ?_?. try !addvillage nameOfVillage 12 45 (!addvillage nameofvillage hours minutes)")
+        return
+    }
+
+
+    if (isNaN(arguments[1]) || isNaN(arguments[2])) {
+        receivedMessage.channel.send("Incorrect timer format ?_?. Try !addvillage nameOfVillage 12 45 (!addvillage nameofvillage hours minutes)")
+        return
+    }
+
+    /*if (arguments[1] == 0 && arguments[2] == 0)  {
+        receivedMessage.channel.send("Incorrect timer format ?_?. Try !addvillage nameOfVillage 12 45 (!addvillage nameofvillage hours minutes)")
+        return
+    }*/
+
+    if (receivedMessage.guild === null) {
+        receivedMessage.channel.send("Use the correct server channel to add villages")
+        return
+    }
+
+    else {
+        addVillage(arguments, receivedMessage)
+    }
+
+
+}
+
+
+
+function removeVillagetimerCommand(arguments, receivedMessage) {
+    if (arguments.length < 1) {
+        receivedMessage.channel.send("What village is that?")
+        return
+    }
+
+    if (receivedMessage.guild === null) {
+        receivedMessage.channel.send("Use the correct server channel to remove villages")
+        return
+    }
+
+    removeVillage(arguments[0])
+
+}
+
+function removeVillage(arg) {
+
+    for (let i = 0; i < villageCommunity.length; i++) {
+        if (villageCommunity[i] == arg) {
+
+            var pos = villageCommunity.indexOf(arg)
+            console.log("remove " + villageCommunity[pos] + " " + pos)
+            villageCommunity.splice(pos, 1)
+            clearInterval(villageTimeCommunity[pos])
+            clearInterval(villageTime6hCommunity[pos])
+            clearInterval(villageTime2hCommunity[pos])
+            clearInterval(villageTime30minCommunity[pos])
+            clearInterval(villageTime10minCommunity[pos])
+            villageTimeCommunity.splice(pos, 1)
+            villageTime6hCommunity.splice(pos, 1)
+            villageTime2hCommunity.splice(pos, 1)
+            villageTime30minCommunity.splice(pos, 1)
+            villageTime10minCommunity.splice(pos, 1)
+        }
+    }
+
+}
+
+function addVillage(args, receivedMessage) {
+
+
+
+    for (let i = 0; i <= villageCommunity.length; i++) {
+        if (!villageCommunity.includes(args[0])) {
+
+            var hours = args[1]
+            var min = args[2]
+
+            if (hours > 0)
+                hours = hours * 3600000
+            if (min > 0)
+                min = min * 60000
+
+            var timer = hours + min
+            var timer6h = 21600000
+            var timer2h = 7200000
+            var timer30min = 1800000
+            var timer10min = 600000
+            var key = receivedMessage.channel.guild.name.toString()
+
+            villageCommunity.push({ 'key': args[0] })
+
+            var vil = setInterval(intervalFunc, timer, args[0], receivedMessage);
+            villageTimeCommunity.push(vil)
+            console.log(args[0])
+
+            if ((timer - timer6h) > 0) {
+                console.log("6h")
+                var vil6h = setInterval(intervalFunc6h, (timer - timer6h), args[0], receivedMessage);
+
+
+            }
+            if ((timer - timer2h) > 0) {
+                console.log("2h")
+                var vil2h = setInterval(intervalFunc2h, (timer - timer2h), args[0], receivedMessage);
+
+
+            }
+            if ((timer - timer30min) > 0) {
+                console.log("30min")
+                var vil30min = setInterval(intervalFunc30min, (timer - 1794000), args[0], receivedMessage);
+
+
+
+            }
+            if ((timer - timer10min) > 0) {
+                console.log("10min")
+                var vil10m = setInterval(intervalFunc10min, (timer - 1782000), args[0], receivedMessage);
+
+
+
+            }
+            villageTime6hCommunity.push(vil6h)
+            villageTime2hCommunity.push(vil2h)
+            villageTime30minCommunity.push(vil30min)
+            villageTime10minCommunity.push(vil10m)
+            break;
+        }
+        receivedMessage.channel.send("I am all ready tracking that village.")
+        break;
+
+    }
+
+}
+
+
+
+function updateTheVillageCommand(args, receivedMessage) {
+
+    if (args.length < 3) {
+        receivedMessage.channel.send("What village is that, and what time ?_?. try nameOfVillage 12 45")
+        return
+    }
+
+    if (receivedMessage.guild === null) {
+        receivedMessage.channel.send("Use the correct server channel to update villages")
+        return
+    }
+
+
+    for (let i = 0; i <= villageCommunity.length; i++) {
+        if (villageCommunity[i] == args[0]) {
+            removeVillage(args[0])
+            addVillage(args, receivedMessage)
+            break;
+        }
+
+    }
+}
+
+function updateVillagetimer(args, msg) {
+
+
+    for (let i = 0; i <= villageCommunity.length; i++) {
+        if (villageCommunity[i] == args) {
+
+            var pos = villageCommunity.indexOf(args)
+            console.log("update timer " + villageCommunity[pos] + " " + pos)
+            villageCommunity.splice(pos, 1)
+            clearInterval(villageTimeCommunity[pos])
+
+            villageTimeCommunity.splice(pos, 1)
+            villageTime6hCommunity.splice(pos, 1)
+            villageTime2hCommunity.splice(pos, 1)
+            villageTime30minCommunity.splice(pos, 1)
+            villageTime10minCommunity.splice(pos, 1)
+
+
+        }
+    }
+
+    var timer25h = 90000000
+    var timer6h = 21600000
+    var timer2h = 7200000
+    var timer30min = 1800000
+    var timer10min = 600000
+
+    var vilx = setInterval(intervalFunc, timer25h, arguments[0]);
+    var key = msg.channel.guild.name.toString()
+
+    villageTimeCommunity.push(vilx)
+    villageCommunity.push({ 'key': args })
+
+
+
+    if ((timer25h - timer6h) > 0) {
+        var vil6h = setInterval(intervalFunc6h, (timer25h - timer6h), arguments[0], msg);
+        villageTime6hCommunity.push(vil6h)
+    }
+    if ((timer25h - timer2h) > 0) {
+        var vil2h = setInterval(intervalFunc2h, (timer25h - timer2h), arguments[0], msg);
+        villageTime2hCommunity.push(vil2h)
+    }
+    if ((timer25h - timer30min) > 0) {
+        var vil30min = setInterval(intervalFunc30min, (timer25h - timer30min), arguments[0], msg);
+        villageTime30minCommunity.push(vil30min)
+    }
+    if ((timer25h - timer10min) > 0) {
+        var vil10m = setInterval(intervalFunc10min, (timer25h - timer10min), arguments[0], msg);
+        villageTime10minCommunity.push(vil10m)
+    }
+
+}
+
+function showVillagetimerCommand(arguments, receivedMessage) {
+
+    if (villageCommunity.length > 0) {
+        receivedMessage.channel.send("Currently keeping track of ")
+        var key = receivedMessage.channel.guild.name
+        for (key in villageCommunity) {
+
+            receivedMessage.channel.send(villageCommunity[key])
+
+        }
+    }
+    else
+        receivedMessage.channel.send("Currently no villages added ")
+}
+
+function sendMessageToVillageChannel(msg, count, receivedMessage) {
+
+    if (ClansTracker.includes(receivedMessage.channel.guild.name)) {
+        var i = ClansTracker.indexOf(receivedMessage.channel.guild.name)
+        villageMsgChanId = ClanChannelTracker[i]
+
+    }
+
+    var messageChannel = client.channels.get(villageMsgChanId.toString()) // Replace with known channel ID
+
+    var now = new Date()
+
+
+    if (parseInt(now.getMinutes()) < 10)
+        messageChannel.send("Current time (UTC) " + now.getUTCHours().toString() + ":0" + now.getMinutes())
+    else
+        messageChannel.send("Current time (UTC) " + now.getUTCHours().toString() + ":" + now.getMinutes())
+
+    if (count == 30 || count == 2)
+        messageChannel.send(msg)
+            .then(function (messageChannel) {
+                messageChannel.react("❌")
+                messageChannel.react("✅")
+
+            }).catch(function () {
+
+            })
+    else
+        messageChannel.send(msg)
+
+
+
+}
+
+
+
+
+
+// -------------------------------------------
+
+function intervalFunc(arg, msg) {
+    updateVillagetimer(arg, msg)
+
+    sendMessageToVillageChannel("`" + arg + "`" + " is going Live", 0, msg)
+}
+
+function intervalFunc6h(arg, msg) {
+
+    sendMessageToVillageChannel("`" + arg + "`" + " is going Live in 6 hours ", 6, msg)
+
+    for (let i = 0; i <= villageCommunity.length; i++) {
+        if (villageCommunity[i] == arg) {
+
+            var pos = villageCommunity.indexOf(arg)
+            console.log("update timer6h " + villageCommunity[pos] + " " + pos)
+            clearInterval(villageTime6hCommunity[pos])
+
+        }
+    }
+}
+function intervalFunc2h(arg, msg) {
+
+    sendMessageToVillageChannel("`" + arg + "`" + " is going Live in 2 hours", 2, msg)
+
+    for (let i = 0; i <= villageCommunity.length; i++) {
+        if (villageCommunity[i] == arg) {
+
+            var pos = villageCommunity.indexOf(arg)
+            console.log("update timer2h " + villageCommunity[pos] + " " + pos)
+            clearInterval(villageTime2hCommunity[pos])
+
+        }
+    }
+}
+function intervalFunc10min(arg, msg) {
+
+    sendMessageToVillageChannel("`" + arg + "`" + " is going Live in 10min !", 10, msg)
+
+    for (let i = 0; i <= villageCommunity.length; i++) {
+        if (villageCommunity[i] == arg) {
+
+
+            var pos = villageCommunity.indexOf(arg)
+            console.log("update timer10m " + villageCommunity[i] + " " + pos)
+            console.log("10min " + villageTime10minCommunity[pos])
+            clearInterval(villageTime10minCommunity[pos])
+
+
+            console.log("10min length: after " + villageTime10minCommunity.length)
+
+        }
+    }
+}
+function intervalFunc30min(arg, msg) {
+
+    sendMessageToVillageChannel("`" + arg + "`" + " is going Live in 30min !", 30, msg)
+
+    for (let i = 0; i <= villageCommunity.length; i++) {
+        if (villageCommunity[i] == arg) {
+
+
+            var pos = villageCommunity.indexOf(arg)
+            console.log("update timer30m " + villageCommunity[i] + " " + pos)
+            console.log("30min " + villageTime30minCommunity[pos])
+            clearInterval(villageTime30minCommunity[pos])
+            console.log("30min length: after " + villageTime30minCommunity.length)
+
+
+
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+// Get your bot's secret token from:
+// https://discordapp.com/developers/applications/
+// Click on your application -> Bot -> Token -> "Click to Reveal Token"
+//bot_secret_token = "NTA4NTk0NDkzODIyNDY4MTE2.DsBkeQ.-r9z91JKeNcPu_R0zl98LPeqX5M"
+
+bot_secret_token = auth.token
+client.login(auth.token)
